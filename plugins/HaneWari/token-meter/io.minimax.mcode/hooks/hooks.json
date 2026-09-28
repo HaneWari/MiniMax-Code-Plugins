@@ -1,0 +1,12 @@
+{
+  "$schema": "https://minimax.io/schemas/mcode-hooks/0.1.0/hooks.schema.json",
+  "hooks": {
+    "SessionEnd": [
+      {
+        "command": "node",
+        "args": ["${PLUGIN_ROOT}/io.minimax.mcode/hooks/scripts/session-snapshot.mjs"],
+        "timeout": 3000
+      }
+    ]
+  }
+}

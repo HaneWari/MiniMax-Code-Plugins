@@ -1,0 +1,43 @@
+{
+  "name": "token-meter",
+  "version": "1.0.0",
+  "description": "Track per-model token usage and prompt-cache hit rate in MiniMax Code (including custom BYOK providers), with minute-precision trend queries, per-session reports, and automatic usage snapshots.",
+  "author": {
+    "name": "HaneWari",
+    "url": "https://github.com/HaneWari"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/MiniMax-AI/MiniMax-Code-Plugins/tree/main/plugins/HaneWari/token-meter",
+  "repository": "https://github.com/MiniMax-AI/MiniMax-Code-Plugins",
+  "keywords": [
+    "token-usage",
+    "cache-hit-rate",
+    "byok",
+    "custom-models",
+    "usage-dashboard",
+    "cost-analysis"
+  ],
+  "skills": ["./skills/token-meter/SKILL.md", "./skills/token-meter-visualizer/SKILL.md"],
+  "mcpServers": {
+    "token-meter": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["./server.mjs"],
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  },
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${PLUGIN_ROOT}/io.minimax.mcode/hooks/scripts/session-snapshot.mjs"],
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}

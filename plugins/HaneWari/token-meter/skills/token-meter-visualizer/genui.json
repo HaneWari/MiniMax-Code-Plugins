@@ -1,0 +1,6 @@
+{
+  "protocol": "mavis.widget.v1",
+  "mode": "forked",
+  "forkedFrom": "minimax/genui-widget@mavis.widget.v1",
+  "sourceDigest": "sha256:fe0cffda20970f14f7c11e572cd05ee941a82570b854e66b1115f62f0137e0bb"
+}

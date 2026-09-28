@@ -1,0 +1,60 @@
+{
+  "$comment": "token_usage_trend 工具返回的数据契约（代表性示例，数值来自真实查询样例）。series.tokensByModel 的键与 models[].key 一一对应；__other__ 表示 Top5 之外的模型合计。",
+  "window": {
+    "start": "2026-09-28T08:00:00.000Z",
+    "end": "2026-09-28T09:45:00.000Z",
+    "bucket": "minute",
+    "bucketCount": 40,
+    "fillEmpty": true
+  },
+  "kpis": {
+    "calls": 146,
+    "inputTokens": 388363,
+    "outputTokens": 80808,
+    "reasoningTokens": 0,
+    "cacheReadTokens": 10127616,
+    "cacheWriteTokens": 0,
+    "totalTokens": 10596787,
+    "cacheHitRate": 0.9631,
+    "costUsd": 0,
+    "activeModels": 2
+  },
+  "models": [
+    {
+      "key": "custom_provider:provider-c582e6|k3",
+      "model": "k3",
+      "modelName": "K3",
+      "providerName": "Kimi For Coding (kimi.com)",
+      "custom": true,
+      "totalTokens": 8698275
+    },
+    {
+      "key": "custom_provider:provider-57658e|step-5-preview",
+      "model": "step-5-preview",
+      "modelName": "step-5-preview",
+      "providerName": "StepFun Step Plan (Global)",
+      "custom": true,
+      "totalTokens": 1898512
+    }
+  ],
+  "series": {
+    "labels": ["16:43", "16:44", "16:45"],
+    "bucketStarts": [1790585033600, 1790585093600, 1790585153600],
+    "tokensByModel": {
+      "custom_provider:provider-c582e6|k3": [42486, 41571, 43063],
+      "custom_provider:provider-57658e|step-5-preview": [0, 12050, 0]
+    },
+    "cacheHitRate": [0.9837, 0.9639, 0.9491],
+    "calls": [5, 3, 4],
+    "totalTokens": [42486, 53621, 43063]
+  },
+  "unknownRows": 0,
+  "notes": ["cacheHitRate = cacheReadTokens / (cacheReadTokens + inputTokens)"],
+  "meta": {
+    "dataDir": "C:\\Users\\example\\.minimax",
+    "rows": 146,
+    "logFilesScanned": 6,
+    "turnsEnriched": 6,
+    "generatedAt": "2026-09-28T09:45:00.000Z"
+  }
+}
