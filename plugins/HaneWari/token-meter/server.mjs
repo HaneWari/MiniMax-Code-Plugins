@@ -339,6 +339,17 @@ function liveBoardHandler(page) {
         res.end(JSON.stringify({ ok: true, now: Date.now() }));
         return;
       }
+      if (url.pathname === '/vendor/chart.umd.min.js') {
+        try {
+          const js = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'lib', 'vendor', 'chart.umd.min.js'));
+          res.writeHead(200, { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'public, max-age=86400' });
+          res.end(js);
+        } catch {
+          res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+          res.end('vendor asset missing');
+        }
+        return;
+      }
       if (url.pathname === '/' || url.pathname === '/index.html') {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
         res.end(page);
@@ -484,7 +495,7 @@ process.stdin.on('data', (chunk) => {
   buffer += chunk;
   let idx;
   while ((idx = buffer.indexOf('\n')) >= 0) {
-    const line = buffer.slice(0, idx).replace(/^[﻿\s]+/, '').replace(/\s+$/, '');
+    const line = buffer.slice(0, idx).replace(/^[\uFEFF\s]+/, '').replace(/\s+$/, '');
     buffer = buffer.slice(idx + 1);
     if (!line) continue;
     let msg;

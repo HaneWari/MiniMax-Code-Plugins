@@ -95,7 +95,9 @@ Which recent sessions consumed the most tokens?
 remote MCP endpoints. The optional `token_meter_live_board` tool binds a **loopback-only** HTTP
 port (`127.0.0.1`, random free port unless specified) to serve the local dashboard to the user's
 own browser; it answers only on the loopback interface, usage data never leaves the machine, and
-the listener is released when the MCP process exits or on `action=stop`.
+the listener is released when the MCP process exits or on `action=stop`. The dashboard's Chart.js
+is vendored into the package (`lib/vendor/chart.umd.min.js`, MIT licensed by the Chart.js
+contributors), so even opening the page triggers no external request.
 
 ## Data use
 

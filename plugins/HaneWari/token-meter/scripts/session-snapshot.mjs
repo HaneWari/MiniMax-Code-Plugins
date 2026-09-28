@@ -73,7 +73,7 @@ function rotateIfNeeded(file) {
 let input = '';
 try {
   // Tolerate leading BOM/whitespace from shell pipelines.
-  input = fs.readFileSync(0, 'utf8').replace(/^[﻿\s]+/, '');
+  input = fs.readFileSync(0, 'utf8').replace(/^[\uFEFF\s]+/, '');
 } catch {
   failOpen();
 }

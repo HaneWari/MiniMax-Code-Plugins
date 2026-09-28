@@ -25,10 +25,6 @@ function loadSqlite() {
   return { sqlite: sqliteModule, error: sqliteError ?? null };
 }
 
-export function sqliteAvailable() {
-  return loadSqlite().sqlite !== null;
-}
-
 export function resolveDataDir(env = process.env) {
   if (env.MINIMAX_DATA_DIR && fs.existsSync(env.MINIMAX_DATA_DIR)) {
     return path.resolve(env.MINIMAX_DATA_DIR);
