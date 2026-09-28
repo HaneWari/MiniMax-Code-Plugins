@@ -24,13 +24,15 @@
 ## Widget 形态
 
 - `kind="dashboard"`，`capabilities="resize,sendPrompt"`，主题 `app`，令牌集 `mavis.semantic.v1`。
+- 设计语言（避免模板化廉价感）：单一 KPI 带（内部分隔线，非四个孤盒）、分段式预设按钮（segmented control）、模型占比分段条、图例附 compact 数值与"自定义"徽记、数字 `tabular-nums`、8px 间距节奏、无阴影无渐变。
 - 语义层级：
-  1. 窗口选择栏：开始/结束 `datetime-local`（`step="60"`）+ 预设（近 1 小时/今天/近 7 天）+ 应用按钮；
-  2. KPI 行（4 卡）：总 tokens、调用次数、缓存命中率、活跃模型；
-  3. 主图：Chart.js combo——各模型 tokens 堆叠柱（左轴）+ 缓存命中率折线（右轴，0-100%）；
-  4. 自定义 HTML 图例（模型显示名，自定义模型带"自定义"徽记）；
-  5. 脚注一行：数据来源、命中率口径、unknownRows（>0 时）。
-- 图表容器显式高度（主图 280px）；>6 个桶用 Chart.js，≤5 个桶退化为 CSS bench bars。
+  1. 标题行：左标题，右 quiet meta（窗口 + 桶粒度 + 记录数）；
+  2. 窗口选择栏（单表面）：开始/结束 `datetime-local`（`step="60"`）→ 分段预设（近 1 小时/今天/近 7 天）→ accent 主按钮"应用"；
+  3. KPI 带（4 格）：总 tokens、调用次数（副行：峰值/桶）、缓存命中率（副行：口径）、活跃模型（副行：模型名）；
+  4. 模型占比条：8px 圆角分段条 + 份额百分比行；
+  5. 主图卡：Chart.js combo——各模型 tokens 堆叠柱（左轴，`borderRadius:5`，无轴线）+ 缓存命中率折线（右轴 0-100%）；图例带数值；
+  6. 脚注行：左侧来源与口径（含 unknownRows>0 提示），右侧"分析这个窗口"按钮。
+- 图表容器显式高度（主图 300px）；>6 个桶用 Chart.js，≤5 个桶退化为 CSS bench bars。
 
 ## 本地交互
 
