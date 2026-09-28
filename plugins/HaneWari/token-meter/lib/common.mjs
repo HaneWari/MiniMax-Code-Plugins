@@ -71,6 +71,20 @@ export function openDb(dataDir) {
   }
 }
 
+// Query raw usage rows in [startMs, endMs] ascending by ts.
+export function queryUsageRows(db, startMs, endMs) {
+  return db
+    .prepare(
+      `SELECT session_id, agent_name, turn_id, model, ts,
+              input_tokens, output_tokens, reasoning_tokens,
+              cache_read_tokens, cache_write_tokens, cost_usd
+         FROM local_runtime_token_usage
+        WHERE ts >= ? AND ts <= ?
+        ORDER BY ts`,
+    )
+    .all(startMs, endMs);
+}
+
 export function dayKey(ms) {
   const d = new Date(ms);
   const y = d.getFullYear();
