@@ -1,6 +1,9 @@
 // token-meter MCP stdio server: read-only token usage queries against the local
 // MiniMax Code runtime state (sqlite + observability logs). Zero dependencies.
 import fs from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   PLUGIN_NAME,
   resolveDataDir,
@@ -20,7 +23,7 @@ import {
 } from './lib/common.mjs';
 import { resolveTrendWindow, buildTrendResult } from './lib/trend.mjs';
 
-const SERVER_VERSION = '1.0.0';
+const SERVER_VERSION = '1.1.0';
 
 const TOOL_DEFS = [
   {
@@ -69,6 +72,18 @@ const TOOL_DEFS = [
         days: { type: 'integer', minimum: 1, maximum: 90, description: '统计最近 N 天（含今天），默认 7；仅在没有 startAt 时生效' },
         bucket: { type: 'string', enum: ['auto', 'minute', 'hour', 'day'], description: '时间桶粒度，默认 auto（≤6小时→分钟，≤7天→小时，否则→天）' },
         fillEmpty: { type: 'boolean', description: '是否用零值桶补齐时间轴上的空桶（命中率记 null），默认 true' },
+      },
+    },
+  },
+  {
+    name: 'token_meter_live_board',
+    description:
+      '启动/查询/关闭本地回环实时看板：绑定 127.0.0.1 端口并返回 URL，页面在本机浏览器中实时查询用量趋势（与 token_usage_trend 同一查询引擎，分钟精度窗口选择器、自动刷新、明暗主题）。仅本机可访问，无任何远程请求；服务随 MCP 进程退出自动释放。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['start', 'status', 'stop'], description: '操作，默认 start' },
+        port: { type: 'integer', minimum: 0, maximum: 65535, description: '指定端口；默认 0 = 随机空闲端口' },
       },
     },
   },
@@ -279,11 +294,124 @@ function toolTrend(args) {
   return { ...result, notes: NOTES };
 }
 
+// --- live board (loopback-only HTTP dashboard) --------------------------------
+// The HTTP handler must never write to stdout: stdout is the JSON-RPC channel.
+
+let liveBoard = null; // { server, url, port }
+
+function liveBoardPagePath() {
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'lib', 'live-board-page.html');
+}
+
+function liveBoardHandler(page) {
+  return (req, res) => {
+    try {
+      const url = new URL(req.url, 'http://127.0.0.1');
+      if (url.pathname === '/api/trend') {
+        try {
+          const now = Date.now();
+          const { startMs, endMs } = resolveTrendWindow(
+            {
+              startAt: url.searchParams.get('startAt') || undefined,
+              endAt: url.searchParams.get('endAt') || undefined,
+              days: url.searchParams.get('days') || undefined,
+            },
+            now,
+          );
+          const result = buildTrendResult({
+            startMs,
+            endMs,
+            bucket: url.searchParams.get('bucket') || 'auto',
+            fillEmpty: url.searchParams.get('fillEmpty') !== 'false',
+            now,
+          });
+          const body = JSON.stringify(result);
+          res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+          res.end(body);
+        } catch (err) {
+          res.writeHead(err.code === 'NO_DB' ? 503 : 400, { 'content-type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+      if (url.pathname === '/api/health') {
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: true, now: Date.now() }));
+        return;
+      }
+      if (url.pathname === '/' || url.pathname === '/index.html') {
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        res.end(page);
+        return;
+      }
+      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+      res.end('not found');
+    } catch (err) {
+      try {
+        res.writeHead(500, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: err.message }));
+      } catch {
+        // socket already gone
+      }
+    }
+  };
+}
+
+async function toolLiveBoard(args) {
+  const action = args?.action || 'start';
+  if (action === 'stop') {
+    if (liveBoard) {
+      await new Promise((resolve) => liveBoard.server.close(resolve));
+      liveBoard = null;
+    }
+    return { running: false };
+  }
+  if (action === 'status') {
+    return {
+      running: liveBoard !== null,
+      url: liveBoard?.url ?? null,
+      hint: liveBoard ? null : '看板未运行；用 action=start 启动。',
+    };
+  }
+  // start (idempotent)
+  if (liveBoard) {
+    return {
+      running: true,
+      alreadyRunning: true,
+      url: liveBoard.url,
+      note: '回环地址，仅本机浏览器可访问；页面实时读取本机用量数据。',
+    };
+  }
+  let page;
+  try {
+    page = fs.readFileSync(liveBoardPagePath(), 'utf8');
+  } catch (err) {
+    throw new Error(`live board page missing from package: ${err.message}`);
+  }
+  const requestedPort = args?.port == null ? 0 : clampInt(args.port, 0, 65535, 0);
+  const server = http.createServer(liveBoardHandler(page));
+  server.unref?.();
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(requestedPort, '127.0.0.1', resolve);
+  });
+  const port = server.address().port;
+  const url = `http://127.0.0.1:${port}/`;
+  liveBoard = { server, url, port };
+  return {
+    running: true,
+    alreadyRunning: false,
+    url,
+    note: '回环地址，仅本机浏览器可访问；页面实时读取本机用量数据（与 token_usage_trend 同一引擎）。宿主若有内置浏览器工具，可直接为用户打开该 URL；否则把链接交给用户。服务随 MCP 进程退出自动释放，也可 action=stop 关闭。',
+  };
+}
+
 const TOOLS = {
   token_usage_summary: toolSummary,
   token_usage_daily: toolDaily,
   token_usage_sessions: toolSessions,
   token_usage_trend: toolTrend,
+  token_meter_live_board: toolLiveBoard,
   token_meter_snapshots: toolSnapshots,
 };
 
@@ -327,15 +455,19 @@ function handleRequest(msg) {
           sendError(id, -32602, `unknown tool: ${name}`);
           return;
         }
-        try {
-          const result = handler(params?.arguments ?? {});
-          sendResult(id, { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] });
-        } catch (err) {
-          sendResult(id, {
-            content: [{ type: 'text', text: `token-meter error: ${err.message}` }],
-            isError: true,
-          });
-        }
+        Promise.resolve()
+          .then(() => handler(params?.arguments ?? {}))
+          .then(
+            (result) => {
+              sendResult(id, { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] });
+            },
+            (err) => {
+              sendResult(id, {
+                content: [{ type: 'text', text: `token-meter error: ${err.message}` }],
+                isError: true,
+              });
+            },
+          );
         return;
       }
       default:

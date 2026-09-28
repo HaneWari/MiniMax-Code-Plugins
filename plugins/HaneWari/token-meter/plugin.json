@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "token-meter",
-  "version": "1.0.0",
-  "description": "Track per-model token usage and prompt-cache hit rate in MiniMax Code (including custom BYOK providers), with minute-precision trend queries, per-session reports, and automatic usage snapshots.",
+  "version": "1.1.0",
+  "description": "Track per-model token usage and prompt-cache hit rate in MiniMax Code (including custom BYOK providers), with minute-precision trend queries, a loopback live dashboard, per-session reports, and automatic usage snapshots.",
   "author": {
     "name": "HaneWari",
     "url": "https://github.com/HaneWari"

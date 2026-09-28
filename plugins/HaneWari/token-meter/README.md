@@ -31,6 +31,15 @@ Expected result: an interactive dashboard (KPI cards, per-model stacked bars, ca
 with a **minute-precision time-window selector**; applying a new window re-queries and re-renders.
 
 ```text
+Show me the live token usage dashboard.
+```
+
+Expected result: the agent starts the loopback live board via `token_meter_live_board` and returns
+(or, on hosts with an in-app browser tool, directly opens) a `http://127.0.0.1:<port>/` link — an
+interactive dashboard with minute-precision window selection, 30-second auto-refresh, and
+light/dark themes, backed by the same query engine as `token_usage_trend`.
+
+```text
 Which recent sessions consumed the most tokens?
 ```
 
@@ -43,6 +52,7 @@ Which recent sessions consumed the most tokens?
   | `token_usage_daily` | Day × model breakdown | `days` (default 7) |
   | `token_usage_sessions` | Per-session totals with titles and model mix | `days` (default 30), `limit` (default 10) |
   | `token_usage_trend` | Minute/hour/day bucketed series for charts; empty buckets are zero-filled (`fillEmpty`, default true) | `startAt`/`endAt` (`YYYY-MM-DDTHH:MM`, minute precision), `days`, `bucket` (`auto`/`minute`/`hour`/`day`) |
+  | `token_meter_live_board` | Start/query/stop a loopback-only live dashboard (`http://127.0.0.1:<port>/`) | `action` (`start`/`status`/`stop`), `port` (default 0 = random free port) |
   | `token_meter_snapshots` | Archived per-session snapshots written by the hook | `limit` (default 20) |
 - **Skill `token-meter`**: when and how to answer usage questions in text, including the metric
   formulas below.
@@ -81,7 +91,11 @@ Which recent sessions consumed the most tokens?
 
 ## Network access
 
-**None.** The plugin makes no network requests and has no remote MCP endpoints.
+**No remote requests.** The plugin makes no network calls to any external destination and has no
+remote MCP endpoints. The optional `token_meter_live_board` tool binds a **loopback-only** HTTP
+port (`127.0.0.1`, random free port unless specified) to serve the local dashboard to the user's
+own browser; it answers only on the loopback interface, usage data never leaves the machine, and
+the listener is released when the MCP process exits or on `action=stop`.
 
 ## Data use
 

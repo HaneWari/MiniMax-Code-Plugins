@@ -19,12 +19,18 @@
 预期结果：交互式看板（KPI 卡片 + 各模型堆叠柱 + 命中率折线），带**分钟精度时间窗口选择器**，应用新窗口后重新取数渲染。
 
 ```text
+打开 token 用量实时看板
+```
+
+预期结果：Agent 通过 `token_meter_live_board` 启动回环实时看板并返回（或在有内置浏览器工具的宿主上直接打开）`http://127.0.0.1:<port>/` 链接——分钟精度窗口选择、30 秒自动刷新、明暗主题的交互看板，数据与 `token_usage_trend` 同一引擎。
+
+```text
 最近哪些会话消耗的 token 最多？
 ```
 
 ## 能力
 
-- **MCP 服务器 `token-meter`**（stdio，只读）：`token_usage_summary`（窗口汇总）、`token_usage_daily`（按天）、`token_usage_sessions`（按会话）、`token_usage_trend`（分钟/小时/天桶序列，分钟精度窗口，`fillEmpty` 默认补零空桶）、`token_meter_snapshots`（快照历史）。
+- **MCP 服务器 `token-meter`**（stdio，只读）：`token_usage_summary`（窗口汇总）、`token_usage_daily`（按天）、`token_usage_sessions`（按会话）、`token_usage_trend`（分钟/小时/天桶序列，分钟精度窗口，`fillEmpty` 默认补零空桶）、`token_meter_live_board`（启动/查询/关闭回环实时看板）、`token_meter_snapshots`（快照历史）。
 - **Skill `token-meter`**：文本统计报告与指标口径。
 - **Skill `token-meter-visualizer`**：在支持 mavis-widget 的宿主上把趋势结果渲染为 dashboard Widget（分钟精度窗口选择器、预设、主题自适应）。没有该宿主时文本报告完整可用。
 - **`SessionEnd` 快照 Hook**（在支持 Hook 的运行时上）：会话结束时把该会话的用量汇总（总量 + 分模型）追加写入插件数据目录的 `snapshots.jsonl`，长期历史不依赖 runtime 数据库的保留策略。只产生副作用、无 stdout、始终退出码 0。
@@ -49,7 +55,7 @@
 
 ## 网络访问
 
-**无。** 插件不发起任何网络请求，也没有远程 MCP 端点。
+**无任何远程请求。** 插件不向任何外部地址发起网络调用，也没有远程 MCP 端点。可选的 `token_meter_live_board` 工具仅绑定**回环地址**（`127.0.0.1`，默认随机空闲端口）向用户本机浏览器提供看板页面；只响应回环接口，用量数据不离开本机，监听器随 MCP 进程退出或 `action=stop` 自动释放。
 
 ## 数据使用
 

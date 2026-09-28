@@ -132,13 +132,14 @@ function toolJson(msg) {
   return JSON.parse(msg.result.content[0].text);
 }
 
-test('tools/list exposes five read-only usage tools', { skip: skipReason }, async () => {
+test('tools/list exposes six read-only usage tools', { skip: skipReason }, async () => {
   const { dir } = buildFixtureDataDir();
   try {
     await withServer({ MINIMAX_DATA_DIR: dir }, async (call) => {
       const list = await call('tools/list', {});
       const names = list.result.tools.map((t) => t.name).sort();
       assert.deepEqual(names, [
+        'token_meter_live_board',
         'token_meter_snapshots',
         'token_usage_daily',
         'token_usage_sessions',
@@ -227,6 +228,37 @@ test('SessionEnd hook archives one snapshot line for the ended session', { skip:
   } finally {
     rmSync(dir, { recursive: true, force: true });
     rmSync(pluginData, { recursive: true, force: true });
+  }
+});
+
+test('live board serves the dashboard page and trend API on loopback', { skip: skipReason }, async () => {
+  const { dir } = buildFixtureDataDir();
+  try {
+    await withServer({ MINIMAX_DATA_DIR: dir }, async (call) => {
+      const start = await call('tools/call', { name: 'token_meter_live_board', arguments: { action: 'start', port: 0 } });
+      const r = toolJson(start);
+      assert.equal(r.running, true);
+      assert.match(r.url, /^http:\/\/127\.0\.0\.1:\d+\/$/u);
+
+      const page = await fetch(r.url);
+      assert.equal(page.status, 200);
+      assert.match(await page.text(), /Token 用量趋势/u);
+
+      const api = await fetch(`${r.url}api/trend?days=1`);
+      assert.equal(api.status, 200);
+      const trend = await api.json();
+      assert.equal(trend.meta.rows, 4);
+      assert.equal(trend.models[0].custom, true);
+
+      const again = await call('tools/call', { name: 'token_meter_live_board', arguments: { action: 'start' } });
+      assert.equal(toolJson(again).alreadyRunning, true);
+
+      const stop = await call('tools/call', { name: 'token_meter_live_board', arguments: { action: 'stop' } });
+      assert.equal(toolJson(stop).running, false);
+      await assert.rejects(fetch(`${r.url}api/health`, { signal: AbortSignal.timeout(2000) }));
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 

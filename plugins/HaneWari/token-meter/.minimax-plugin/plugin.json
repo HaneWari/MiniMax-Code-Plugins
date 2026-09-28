@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "name": "token-meter",
   "displayName": "Token Meter",
-  "version": "1.0.0",
-  "description": "统计 MiniMax Code 中各模型（含 Kimi、StepFun 等自定义接入模型）的 token 消耗明细与缓存命中率，支持按窗口/天/会话汇总、分钟级用量趋势看板，并在每次会话结束时自动归档长期快照。",
+  "version": "1.1.0",
+  "description": "Track per-model token usage and prompt-cache hit rate in MiniMax Code (including custom BYOK providers), with minute-precision trend queries, a loopback live dashboard, per-session reports, and automatic usage snapshots.",
   "author": "HaneWari",
   "icon": "icon.png",
   "darkIcon": "icon-dark.png",
@@ -14,7 +14,14 @@
     "画出今天下午 2 点到 4 点的 token 用量趋势看板"
   ],
   "apps": [],
-  "mcpServers": ["token-meter.mcp.json"],
-  "skills": ["skills/token-meter/SKILL.md", "skills/token-meter-visualizer/SKILL.md"],
-  "hooks": ["hooks/hooks.json"]
+  "mcpServers": [
+    "token-meter.mcp.json"
+  ],
+  "skills": [
+    "skills/token-meter/SKILL.md",
+    "skills/token-meter-visualizer/SKILL.md"
+  ],
+  "hooks": [
+    "hooks/hooks.json"
+  ]
 }

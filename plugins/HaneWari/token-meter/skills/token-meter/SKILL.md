@@ -9,7 +9,7 @@ description: 统计 MiniMax Code 本机各模型（含自定义接入模型，�
 
 ## 能力
 
-本插件提供一个 MCP 服务器 `token-meter`（5 个工具，全部只读）和一个 SessionEnd 快照 Hook（自动归档，无需手动触发）。
+本插件提供一个 MCP 服务器 `token-meter`（6 个工具，全部只读）和一个 SessionEnd 快照 Hook（自动归档，无需手动触发）。
 
 ### MCP 工具
 
@@ -19,7 +19,17 @@ description: 统计 MiniMax Code 本机各模型（含自定义接入模型，�
 | `token_usage_daily` | 按天 × 模型 的每日趋势 | `days`（默认 7） |
 | `token_usage_sessions` | 按会话的消耗明细，含会话标题与分模型构成 | `days`（默认 30）、`limit`（默认 10） |
 | `token_usage_trend` | 按分钟/小时/天桶的用量与命中率序列，分钟精度自定义窗口；`fillEmpty`（默认 true）用零值桶补齐时间轴 | `startAt`/`endAt`（YYYY-MM-DDTHH:MM）、`days`、`bucket`（auto/minute/hour/day） |
+| `token_meter_live_board` | 启动/查询/关闭本地回环实时看板，返回 `http://127.0.0.1:<port>/` | `action`（start/status/stop）、`port`（默认 0=随机） |
 | `token_meter_snapshots` | Hook 归档的历史会话快照（runtime 数据库清理后仍可回顾） | `limit`（默认 20） |
+
+### 实时看板（live board）
+
+当用户想"查看用量趋势/实时看板"，或文本与静态图表都不够用时：
+
+1. 调用 `token_meter_live_board`（`action=start`）拿到回环 URL；重复调用幂等返回同一地址。
+2. **宿主若提供内置浏览器工具（如 `mcp_browser` 的 `open_tab`），直接为用户打开该 URL**——用户无需任何手动操作即可看到实时看板；否则把链接发给用户自行点击。
+3. 页面能力：分钟精度窗口选择器 + 近 1 小时/今天/近 7 天预设、30 秒自动刷新、跟随系统/手动切换明暗主题，数据与 `token_usage_trend` 同一引擎。
+4. 只绑定 127.0.0.1，无远程请求；服务随 MCP 进程退出自动释放，用户要求关闭时调 `action=stop`。
 
 ### 快照 Hook
 
@@ -48,7 +58,12 @@ description: 统计 MiniMax Code 本机各模型（含自定义接入模型，�
 
 ## 可视化组合
 
-本 Skill 始终先产出上面的文本结果。仅当用户明确要求图表/看板/趋势曲线，或给出需要图形化呈现的时间段（尤其是分钟级窗口）时，在拿到文本结果后转交 `token-meter:token-meter-visualizer` 渲染一个 dashboard Widget；趋势数据改用 `token_usage_trend`（支持 `startAt`/`endAt` 分钟精度窗口与 minute/hour/day 桶）。纯统计问答不渲染 Widget。
+本 Skill 始终先产出上面的文本结果。呈现方式按场景选择：
+
+- **mavis-widget 看板**：用户明确要求会话内嵌图表/看板且宿主支持 widget 时，拿到文本结果后转交 `token-meter:token-meter-visualizer` 渲染一个 dashboard Widget（趋势数据用 `token_usage_trend`）。
+- **实时看板页**：用户要求实时交互、分钟级窗口自由探索，或宿主不支持 widget 时，走上面的"实时看板（live board）"流程。
+
+纯统计问答不渲染 Widget、不启动看板。
 
 ## 注意
 

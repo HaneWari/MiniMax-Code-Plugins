@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>token-meter 实时看板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style id="tokens"></style>
+<style>
+body{margin:0;padding:20px;background:var(--mw-bg);color:var(--mw-text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:14px}
+.stage{max-width:860px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.title{font-size:16px;font-weight:500}
+.meta{font-size:12px;color:var(--mw-text-subtle);font-variant-numeric:tabular-nums}
+.win-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--mw-surface);border:1px solid var(--mw-border);border-radius:12px;padding:10px 12px;margin-bottom:16px}
+.win-field{display:flex;align-items:center;gap:6px}
+.win-field span{font-size:12px;color:var(--mw-text-muted)}
+.win-arrow{font-size:12px;color:var(--mw-text-subtle)}
+.win-bar input{font:inherit;font-size:13px;color:var(--mw-text);background:var(--mw-surface-muted);border:1px solid var(--mw-border);border-radius:8px;padding:5px 8px;font-variant-numeric:tabular-nums}
+.win-bar input:focus-visible{outline:2px solid var(--mw-accent);outline-offset:1px}
+.seg{display:inline-flex;border:1px solid var(--mw-border);border-radius:8px;overflow:hidden;margin-left:auto}
+.seg button{font:inherit;font-size:12px;padding:6px 12px;border:none;background:var(--mw-surface);color:var(--mw-text-muted);cursor:pointer}
+.seg button+button{border-left:1px solid var(--mw-border)}
+.seg button:hover{background:var(--mw-surface-muted);color:var(--mw-text)}
+.seg button.on{background:var(--mw-surface-muted);color:var(--mw-text);font-weight:500}
+.apply{font:inherit;font-size:12.5px;font-weight:500;padding:7px 16px;border-radius:8px;border:1px solid var(--mw-accent);background:var(--mw-accent);color:var(--mw-surface);cursor:pointer}
+.apply:focus-visible,.seg button:focus-visible,.ghost:focus-visible{outline:2px solid var(--mw-accent);outline-offset:1px}
+.apply:disabled{opacity:.5;cursor:default}
+.ghost{font:inherit;font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--mw-border);background:var(--mw-surface);color:var(--mw-text-muted);cursor:pointer}
+.ghost:hover{background:var(--mw-surface-muted);color:var(--mw-text)}
+.autor{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--mw-text-muted);cursor:pointer;user-select:none}
+.autor input{accent-color:var(--mw-accent)}
+.win-err{width:100%;font-size:12px;color:var(--mw-danger);display:none}
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);background:var(--mw-surface);border:1px solid var(--mw-border);border-radius:12px;margin-bottom:16px;overflow:hidden}
+.cell{padding:14px 16px}
+.cell+.cell{border-left:1px solid var(--mw-border)}
+.cell .v{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+.cell .l{font-size:12px;color:var(--mw-text-muted);margin-top:2px}
+.cell .s{font-size:12px;color:var(--mw-text-subtle);margin-top:1px;font-variant-numeric:tabular-nums}
+.share{margin-bottom:16px}
+.share-track{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--mw-surface-muted)}
+.share-track div{height:100%}
+.share-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--mw-text-muted);font-variant-numeric:tabular-nums}
+.chart-card{background:var(--mw-surface);border:1px solid var(--mw-border);border-radius:12px;padding:16px}
+.chart-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chart-title{font-size:14px;font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--mw-text-muted)}
+.legend-item{display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.legend-dot{width:10px;height:10px;border-radius:3px}
+.tag{font-size:10px;border:1px solid var(--mw-accent);color:var(--mw-accent);border-radius:4px;padding:0 4px;margin-left:2px}
+.chart-wrap{position:relative;width:100%;height:300px}
+.chart-state{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--mw-text-subtle);background:var(--mw-surface)}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--mw-border)}
+.foot .src{font-size:12px;color:var(--mw-text-subtle);line-height:1.6}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="top">
+    <div class="title">Token 用量趋势 · 实时</div>
+    <div class="meta" id="top-meta">连接中…</div>
+  </div>
+  <div class="win-bar">
+    <div class="win-field"><span>开始</span><input type="datetime-local" id="win-start" step="60"></div>
+    <div class="win-arrow">→</div>
+    <div class="win-field"><span>结束</span><input type="datetime-local" id="win-end" step="60"></div>
+    <div class="seg" role="group" aria-label="预设窗口">
+      <button data-preset="1h">近 1 小时</button><button data-preset="today">今天</button><button data-preset="7d">近 7 天</button>
+    </div>
+    <label class="autor"><input type="checkbox" id="autor" checked>30s</label>
+    <button class="ghost" id="theme-toggle">深色</button>
+    <button class="apply" id="win-apply">应用</button>
+    <div class="win-err" id="win-err"></div>
+  </div>
+  <div class="kpi-strip">
+    <div class="cell"><div class="v" id="kpi-total">--</div><div class="l">总 tokens</div><div class="s" id="kpi-total-sub"></div></div>
+    <div class="cell"><div class="v" id="kpi-calls">--</div><div class="l">调用次数</div><div class="s" id="kpi-calls-sub"></div></div>
+    <div class="cell"><div class="v" id="kpi-hit">--</div><div class="l">缓存命中率</div><div class="s">cacheRead / (cacheRead + input)</div></div>
+    <div class="cell"><div class="v" id="kpi-models">--</div><div class="l">活跃模型</div><div class="s" id="kpi-models-sub"></div></div>
+  </div>
+  <div class="share" id="share"></div>
+  <div class="chart-card">
+    <div class="chart-head">
+      <div class="chart-title">用量构成</div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="trend-chart"></canvas>
+      <div class="chart-state" id="chart-state">加载中…</div>
+    </div>
+    <div class="foot">
+      <div class="src" id="foot"></div>
+    </div>
+  </div>
+</div>
+<script>
+var LIGHT = {
+  bg:'#f6f6f8', surface:'#ffffff', surfaceMuted:'#f0f0f3', text:'#1b1b1f', textMuted:'#5d5d66',
+  textSubtle:'#9a9aa3', border:'#e3e3e8', accent:'#6c5ce7', success:'#1f9d63', warning:'#c98a1b',
+  danger:'#d04545', chart1:'#6c5ce7', chart2:'#2ea6a4', chart3:'#e0932f', chart4:'#d0567a',
+  chart5:'#5470c6', chart6:'#8a9a5b', chartGrid:'#ececf1', chartAxis:'#9a9aa3'
+};
+var DARK = {
+  bg:'#141416', surface:'#1d1d21', surfaceMuted:'#26262b', text:'#e8e8ec', textMuted:'#a5a5ad',
+  textSubtle:'#6e6e77', border:'#2f2f36', accent:'#8b7cf0', success:'#3dbf82', warning:'#d9a03f',
+  danger:'#e06060', chart1:'#8b7cf0', chart2:'#45c0bd', chart3:'#e5a84d', chart4:'#e0709a',
+  chart5:'#7a94e0', chart6:'#a3b877', chartGrid:'#2a2a31', chartAxis:'#6e6e77'
+};
+var mediaDark = window.matchMedia('(prefers-color-scheme: dark)');
+var tk = mediaDark.matches ? DARK : LIGHT;
+var chart = null;
+var chartData = null;
+var fmt = new Intl.NumberFormat('zh-CN');
+var compact = function (v) { return v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? (v / 1e3).toFixed(1) + 'K' : String(v); };
+var pad = function (n) { return String(n).padStart(2, '0'); };
+var toInput = function (ms) { var x = new Date(ms); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()) + 'T' + pad(x.getHours()) + ':' + pad(x.getMinutes()); };
+var fmtLocal = function (iso) { var x = new Date(iso); return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()) + ' ' + pad(x.getHours()) + ':' + pad(x.getMinutes()); };
+
+function applyTheme() {
+  document.getElementById('tokens').textContent = ':root{' + Object.entries({
+    '--mw-bg':tk.bg,'--mw-surface':tk.surface,'--mw-surface-muted':tk.surfaceMuted,'--mw-text':tk.text,
+    '--mw-text-muted':tk.textMuted,'--mw-text-subtle':tk.textSubtle,'--mw-border':tk.border,'--mw-accent':tk.accent,
+    '--mw-success':tk.success,'--mw-warning':tk.warning,'--mw-danger':tk.danger,
+    '--mw-chart-1':tk.chart1,'--mw-chart-2':tk.chart2,'--mw-chart-3':tk.chart3,'--mw-chart-4':tk.chart4,
+    '--mw-chart-5':tk.chart5,'--mw-chart-6':tk.chart6,'--mw-chart-grid':tk.chartGrid,'--mw-chart-axis':tk.chartAxis
+  }).map(function (kv) { return kv[0] + ':' + kv[1]; }).join(';') + '}';
+  document.getElementById('theme-toggle').textContent = tk === DARK ? '浅色' : '深色';
+  if (chartData) render(chartData);
+}
+document.getElementById('theme-toggle').addEventListener('click', function () {
+  tk = tk === DARK ? LIGHT : DARK;
+  applyTheme();
+});
+mediaDark.addEventListener('change', function (e) {
+  tk = e.matches ? DARK : LIGHT;
+  applyTheme();
+});
+
+function setState(text) {
+  var el = document.getElementById('chart-state');
+  if (text == null) { el.style.display = 'none'; return; }
+  el.textContent = text;
+  el.style.display = 'flex';
+}
+function showError(text) {
+  var err = document.getElementById('win-err');
+  if (!text) { err.style.display = 'none'; return; }
+  err.textContent = text;
+  err.style.display = 'block';
+}
+
+function render(d) {
+  chartData = d;
+  var bucketName = { minute: '分钟', hour: '小时', day: '天' }[d.window.bucket] || d.window.bucket;
+  document.getElementById('top-meta').textContent =
+    fmtLocal(d.window.start) + ' → ' + fmtLocal(d.window.end) +
+    ' · ' + bucketName + '桶 · ' + fmt.format(d.meta.rows) + ' 条记录 · ' + new Date(d.meta.generatedAt).toLocaleTimeString('zh-CN', { hour12: false });
+  document.getElementById('kpi-total').textContent = compact(d.kpis.totalTokens);
+  document.getElementById('kpi-total-sub').textContent = fmt.format(d.kpis.totalTokens) + ' tokens';
+  document.getElementById('kpi-calls').textContent = fmt.format(d.kpis.calls);
+  document.getElementById('kpi-calls-sub').textContent = d.series.totalTokens.length ? '峰值 ' + compact(Math.max.apply(null, d.series.totalTokens.concat([0]))) + ' / 桶' : '';
+  document.getElementById('kpi-hit').textContent = d.kpis.cacheHitRate == null ? '--' : (d.kpis.cacheHitRate * 100).toFixed(1) + '%';
+  document.getElementById('kpi-models').textContent = d.kpis.activeModels;
+  document.getElementById('kpi-models-sub').textContent = d.models.map(function (m) { return m.modelName; }).join(' · ');
+
+  var grand = d.models.reduce(function (s, m) { return s + m.totalTokens; }, 0);
+  var share = document.getElementById('share');
+  share.innerHTML = '';
+  var palette = [tk.chart1, tk.chart2, tk.chart3, tk.chart4, tk.chart5, tk.chart6];
+  if (grand > 0) {
+    var track = document.createElement('div');
+    track.className = 'share-track';
+    var shareLegend = document.createElement('div');
+    shareLegend.className = 'share-legend';
+    d.models.forEach(function (m, i) {
+      var seg = document.createElement('div');
+      seg.style.width = (m.totalTokens / grand * 100).toFixed(1) + '%';
+      seg.style.background = palette[i % 6];
+      track.appendChild(seg);
+      var item = document.createElement('span');
+      item.textContent = m.modelName + ' ' + (m.totalTokens / grand * 100).toFixed(1) + '%';
+      shareLegend.appendChild(item);
+    });
+    share.appendChild(track);
+    share.appendChild(shareLegend);
+  }
+
+  var legend = document.getElementById('legend');
+  legend.innerHTML = '';
+  d.models.forEach(function (m, i) {
+    var item = document.createElement('span');
+    item.className = 'legend-item';
+    item.innerHTML = '<span class="legend-dot" style="background:' + palette[i % 6] + ';"></span>' +
+      m.modelName + (m.custom ? '<span class="tag">自定义</span>' : '') + ' ' + compact(m.totalTokens);
+    legend.appendChild(item);
+  });
+
+  document.getElementById('foot').textContent =
+    '来源：本机 runtime 用量记录（sqlite + 日志补全，' + d.meta.dataDir + '）' +
+    (d.unknownRows > 0 ? ' · ' + d.unknownRows + ' 条未识别模型' : '') +
+    ' · 命中率 = cacheRead / (cacheRead + input)';
+
+  if (d.meta.rows === 0) {
+    if (chart) { chart.destroy(); chart = null; }
+    setState('该时间窗口内没有用量记录');
+    return;
+  }
+  setState(null);
+  var datasets = d.models.map(function (m, i) {
+    return {
+      type: 'bar', label: m.modelName, data: d.series.tokensByModel[m.key] || [],
+      backgroundColor: palette[i % 6] + 'b3', borderColor: palette[i % 6], borderWidth: 1,
+      borderSkipped: false, borderRadius: 5, stack: 'tokens', yAxisID: 'y'
+    };
+  });
+  datasets.push({
+    type: 'line', label: '缓存命中率', data: d.series.cacheHitRate,
+    borderColor: tk.accent, backgroundColor: tk.accent, borderWidth: 2,
+    pointRadius: 2.5, spanGaps: false, tension: 0.3, yAxisID: 'y1'
+  });
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('trend-chart'), {
+    data: { labels: d.series.labels, datasets: datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400, easing: 'easeOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: tk.surface, titleColor: tk.text, bodyColor: tk.textMuted,
+          borderColor: tk.border, borderWidth: 1, padding: 10,
+          callbacks: {
+            label: function (ctx) {
+              return ctx.dataset.yAxisID === 'y1'
+                ? ' 缓存命中率: ' + (ctx.parsed.y == null ? '--' : (ctx.parsed.y * 100).toFixed(1) + '%')
+                : ' ' + ctx.dataset.label + ': ' + fmt.format(ctx.parsed.y) + ' tokens';
+            },
+            footer: function (items) { var i = items[0].dataIndex; return '调用 ' + d.series.calls[i] + ' 次 · 合计 ' + fmt.format(d.series.totalTokens[i]); }
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: tk.chartAxis, maxTicksLimit: 20 } },
+        y: { stacked: true, grid: { color: tk.chartGrid }, border: { display: false }, ticks: { color: tk.chartAxis, callback: function (v) { return compact(v); } } },
+        y1: { position: 'right', min: 0, max: 1, grid: { display: false }, border: { display: false }, ticks: { color: tk.chartAxis, callback: function (v) { return (v * 100).toFixed(0) + '%'; } } }
+      }
+    }
+  });
+}
+
+async function refresh() {
+  var s = document.getElementById('win-start').value;
+  var e = document.getElementById('win-end').value;
+  if (!s || !e || new Date(e) <= new Date(s)) {
+    showError('请检查时间：开始与结束都不能为空，且结束必须晚于开始。');
+    return;
+  }
+  showError(null);
+  document.getElementById('win-apply').disabled = true;
+  setState('加载中…');
+  try {
+    var resp = await fetch('/api/trend?startAt=' + encodeURIComponent(s) + '&endAt=' + encodeURIComponent(e) + '&bucket=auto');
+    var body = await resp.json();
+    if (!resp.ok) throw new Error(body.error || ('HTTP ' + resp.status));
+    render(body);
+  } catch (err) {
+    setState('加载失败');
+    showError('数据加载失败：' + err.message);
+  } finally {
+    document.getElementById('win-apply').disabled = false;
+  }
+}
+
+var autoTimer = null;
+function armAutoRefresh() {
+  if (autoTimer) clearInterval(autoTimer);
+  autoTimer = null;
+  if (document.getElementById('autor').checked) {
+    autoTimer = setInterval(function () {
+      var p = document.querySelector('.seg button.on');
+      if (p) applyPreset(p.dataset.preset); // re-anchor "now" windows
+    }, 30000);
+  }
+}
+document.getElementById('autor').addEventListener('change', armAutoRefresh);
+
+function applyPreset(name) {
+  var now = Date.now(), start;
+  if (name === '1h') start = now - 3600000;
+  else if (name === '7d') start = now - 7 * 86400000;
+  else { var x = new Date(); x.setHours(0, 0, 0, 0); start = x.getTime(); }
+  document.getElementById('win-start').value = toInput(start);
+  document.getElementById('win-end').value = toInput(now);
+  refresh();
+}
+
+document.querySelectorAll('.seg button').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('.seg button').forEach(function (b) { b.classList.remove('on'); });
+    btn.classList.add('on');
+    document.getElementById('autor').checked = true;
+    armAutoRefresh();
+    applyPreset(btn.dataset.preset);
+  });
+});
+document.getElementById('win-apply').addEventListener('click', function () {
+  document.getElementById('autor').checked = false; // custom windows are static
+  armAutoRefresh();
+  refresh();
+});
+
+applyTheme();
+document.querySelector('.seg button[data-preset="today"]').classList.add('on');
+applyPreset('today');
+armAutoRefresh();
+</script>
+</body>
+</html>
